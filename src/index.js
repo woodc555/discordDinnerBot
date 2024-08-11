@@ -1,3 +1,5 @@
+require('dotenv').config();
+
 const {Client, IntentsBitField} = require('discord.js');
 
 const client = new Client({
@@ -9,4 +11,14 @@ const client = new Client({
     ],
 });
 
-client.login("OTUzMDQ1MzI5ODMyNDU2MTky.GbLLPa.U0hPJHaceiS5_LqZN5nm1mjirjLWgKgGPAzfoQ");
+client.on('ready', (c) => {
+    console.log('the bot is ready');
+});
+
+client.on('messageCreate', (message) => {
+    if (message.content == '!DinDin'){
+        message.reply('This is where the schedule will pop up!');
+    }
+});
+
+client.login(process.env.TOKEN);
