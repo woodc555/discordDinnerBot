@@ -1,21 +1,25 @@
 require('dotenv').config();
-
-const {Client, IntentsBitField, Collection} = require('discord.js');
+require('../chron_jobs/chron-job.js');
+const {Client, GatewayIntentBits, Collection} = require('discord.js');
 
 const client = new Client({
     intents: [
-        IntentsBitField.Flags.Guilds,
-        IntentsBitField.Flags.GuildMembers,
-        IntentsBitField.Flags.GuildMessages,
-        IntentsBitField.Flags.MessageContent,
+        GatewayIntentBits.Guilds,
+        GatewayIntentBits.GuildMembers,
+        GatewayIntentBits.GuildMessages,
+        GatewayIntentBits.MessageContent,
     ],
 });
 
 const userStates = new Collection();
-const dinSchArry = ['NameA', 'NameB', 'NameC'];
+const channelId = process.env.CHANNEL_ID;
+const dinSchArry = ['Iris', 'Jake', 'Tommy', 'David', 'Christian'];
+const dinSchDates = [];
+
 
 client.on('ready', (c) => {
     console.log('the bot is ready');
+    console.log(`Logged into: ${client.user.tag}`);
 });
 
 client.on('messageCreate', async (message) =>{
@@ -28,28 +32,29 @@ client.on('messageCreate', async (message) =>{
 
     //List of Commands
     if (message.content == "!botCommands"){
-        message.channel.send("View Din Din Schedule: **!din**\nAdd To Schedule: **!addToSch**\nRemove From Schedule: **!remFromSch**\n");
+        message.channel.send("View Din Din Schedule: **!din**\n\nAdd To Schedule: **!addToSch**\n\nRemove From Schedule: **!remFromSch**\n\nSwitch With Someone: **!switchDuties**\n\nProgress the Schedule: **!progress**");
     }
 
      //Checking Schedule
      if (message.content == '!din'){
         const scheduleResp = dinSchArry.join('\n');
 
-        message.channel.send(scheduleResp);
+        message.channel.send(`**DinDin Duties:**\n${scheduleResp}`);
     }
 
     //Addding People to Schedule
     if (message.content == '!addToSch'){
-        await message.channel.send('Who would you like to Add? Please only type the name.');
+        await message.channel.send('Who would you like to Add? Please only type their name.');
 
         userStates.set(userId, 'waiting_to_add');
     };
 
     if (addWaiting === 'waiting_to_add'){
         const addResponse = message.content;
-
-        await message.channel.send(`You will be adding: "${addResponse}" to the DinDin Schdule.`);
         dinSchArry.push(addResponse);
+        const scheduleResp = dinSchArry.join('\n');
+
+        await message.channel.send(`You have added: "${addResponse}" to the DinDin Schdule.\n\n**DinDin Schedule**\n${scheduleResp}`);
 
         userStates.delete(userId);
         return;
@@ -58,22 +63,23 @@ client.on('messageCreate', async (message) =>{
     //Removing People from Schedule
     if (message.content == '!remFromSch'){
         const scheduleResp = dinSchArry.join('\n');
-        await message.channel.send(`Who would you like to remove?\n${scheduleResp}`);
+        await message.channel.send(`Who would you like to remove, please type in there name exactly as you see it?\n\n**DinDin Schedule**\n${scheduleResp}`);
 
         userStates.set(userId, 'waiting_to_remove');
     };
 
     if (addWaiting === 'waiting_to_remove'){
         const removeResponse = message.content;
+        scheduleResp = dinSchArry.join('\n');
 
         if(dinSchArry.includes(removeResponse)){
-            await message.channel.send(`You have removed... "${removeResponse}"`);
-
             var remIndex = dinSchArry.indexOf(removeResponse);
-            
             dinSchArry.splice(remIndex, 1);
+
+            await message.channel.send(`You have removed... ${removeResponse}.`);
+
         } else {
-            await message.channel.send(`${removeResponse} is not in the schedule.`);
+            await message.channel.send(`${removeResponse} is not in the schedule. Please look again and type it out exactly.\n\n**DinDin Schedule**\n${scheduleResp}`);
         }
 
         userStates.delete(userId);
@@ -83,7 +89,7 @@ client.on('messageCreate', async (message) =>{
     //Switching Positions in Schedule
     if (message.content == '!switchDuties'){
         const scheduleResp = dinSchArry.join('\n');
-        await message.channel.send(`Which two people would you like to switch?\n${scheduleResp}`);
+        await message.channel.send(`Which two people would you like to switch?\n\n**DinDin Schedule**\n${scheduleResp}`);
 
         userStates.set(userId, 'waiting_to_switch_part1');
     }
@@ -98,10 +104,10 @@ client.on('messageCreate', async (message) =>{
 
             const tempScheduleResp = tempDinSch.join('\n');
 
-            await message.channel.send(`Who is switching with ${switchRespA}?\n${tempScheduleResp}`);
+            await message.channel.send(`Who is switching with ${switchRespA}?\n\n**DinDin Schedule**\n${tempScheduleResp}`);
             userStates.set(userId, 'waiting_to_switch_part2');
         } else {
-            await message.channel.send(`${switchRespA} is not someone on the schedule. Try again.`);
+            await message.channel.send(`${switchRespA} is not someone on the schedule. Try again.\n\n**DinDin Schedule**\n${tempScheduleResp}`);
         }
 
     } else if (addWaiting === 'waiting_to_switch_part2'){
@@ -115,7 +121,7 @@ client.on('messageCreate', async (message) =>{
 
             const scheduleResp = dinSchArry.join('\n');
 
-            await message.channel.send(`${switchRespA} will be swapped with ${switchRespB}!\n${scheduleResp}`);
+            await message.channel.send(`${switchRespA} will be swapped with ${switchRespB}!\n\n**DinDin Schedule**\n${scheduleResp}`);
 
             userStates.delete(userId);
             return;
@@ -123,6 +129,16 @@ client.on('messageCreate', async (message) =>{
             await message.channel.send(`${switchRespB} is not someone on the schedule. Try again.`);
         }
         
+     }
+
+     //To the end of the line
+     if (message.content == "!progress"){
+        let firstPerson =  dinSchArry.shift();
+        dinSchArry.push(firstPerson);
+
+        const scheduleResp = dinSchArry.join('\n');
+
+        message.channel.send(`The first person has been moved to the end of the list.\n\n**DinDin Schedule**\n${scheduleResp}`);
      }
 });
 
