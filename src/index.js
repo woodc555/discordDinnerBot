@@ -101,13 +101,23 @@ function isValidDate(dateString) {
            date.getDate() === day;
 }
 
-//Add one to start date
+//Add days to start date
 function addOneDay(date) {
     // Create a new Date object to avoid mutating the original date
     const newDate = new Date(date);
     
     // Add one day (24 hours) to the date
     newDate.setDate(newDate.getDate() + 1);
+    
+    return newDate;
+}
+
+function addTwoWeeks(date) {
+    // Create a new Date object to avoid mutating the original date
+    const newDate = new Date(date);
+    
+    // Add one day (24 hours) to the date
+    newDate.setDate(newDate.getDate() + 14);
     
     return newDate;
 }
@@ -298,6 +308,10 @@ function scheduleUpdate(){
     let firstPerson = dinSchArry.shift();
     dinSchArry.push(firstPerson);
     dinSchDates = addDaysToDates(dinSchDates, 15);
+
+    //change startDate and dayAfter
+    startDate = addTwoWeeks(startDate);
+    dayAfter = addOneDay(startDate);
 
     scheduleResp = pairNamesWithDates(dinSchArry, dinSchDates);
     console.log(scheduleResp);
