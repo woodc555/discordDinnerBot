@@ -13,6 +13,7 @@ const client = new Client({
 
 const userStates = new Collection();
 const channelId = process.env.CHANNEL_ID;
+let scheduleChannel = null;
 const dinSchArry = ['TestUser1', 'TestUser2'];
 
 //Create the array list of dates
@@ -74,7 +75,7 @@ function formatDate(date) {
     return date.toLocaleDateString('en-US', options);
 }
 
-startDate = '11/17/2025';
+startDate = '11/3/2025';
 
 dinSchDates = generateDatesArray(startDate, dinSchArry.length);
 
@@ -129,14 +130,34 @@ function addTwoWeeks(date) {
 dayAfter = addOneDay(new Date(startDate));
 
 
-client.on('ready', (c) => {
+client.on('ready', async (c) => {
     console.log('the bot is ready');
+
+    for (const guild of client.guilds.cache.values()) {
+        const channel = guild.channels.cache.get(channelId);
+        if (channel) {
+            scheduleChannel = channel;
+            //console.log('Schedule channel found:', scheduleChannel.name);
+            break;
+        }
+    }
+    
+    if (!scheduleChannel) {
+        console.error('Could not find schedule channel. It will be stored when first message is received.');
+    }
 });
 
 client.on('messageCreate', async (message) =>{
     if (message.author.bot){
         return;
     ;}
+
+    if (!scheduleChannel) {
+        if (String(message.channel.id) === String(channelId)) {
+            scheduleChannel = message.channel;
+            //console.log('Schedule channel stored from message:', scheduleChannel.name, 'ID:', scheduleChannel.id);
+        }
+    }
 
     const userId = message.author.id;
     const addWaiting = userStates.get(userId);
@@ -344,20 +365,38 @@ client.on('messageCreate', async (message) =>{
         }
         return;
     }
+
+    // if (message.content == '!testCron'){
+    //     if (isEveryOtherTuesday()) {
+    //         await scheduleUpdate(message.channel);
+    //         message.channel.send('Cron job test: Schedule updated successfully!');
+    //     } else {
+    //         const today = new Date();
+    //         const startDateObj = new Date(startDate);
+    //         const targetDate = new Date(startDateObj);
+    //         targetDate.setDate(targetDate.getDate() + 1);
+            
+    //         message.channel.send(`Cron job test: Not time to update yet.\n\nToday: ${today.toLocaleDateString()}\nTarget Date: ${targetDate.toLocaleDateString()}\nStartDate: ${startDate}`);
+    //     }
+    // }
 });
 
 client.login(process.env.TOKEN);
 
-function isEveryOtherTuesday(date) {
-    const datAfterDate = dayAfter instanceof Date ? dayAfter : new Date(dayAfter);
+function isEveryOtherTuesday() {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
 
-    const diffTime = Math.abs(date - dayAfterDate);
-    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+    const startDateObj = new Date(startDate);
+    startDateObj.setHours(0, 0, 0, 0);
 
-    return diffDays % 14 === 0 || diffDays % 14 === 1;
+    const targetDate = new Date(startDateObj);
+    targetDate.setDate(targetDate.getDate() + 1);
+
+    return today >= targetDate;
 }
 
-function scheduleUpdate(){
+async function scheduleUpdate(channelToUse = null){
     let firstPerson = dinSchArry.shift();
     dinSchArry.push(firstPerson);
     dinSchDates = addDaysToDates(dinSchDates, 14);
@@ -365,25 +404,50 @@ function scheduleUpdate(){
     const startDateDate = new Date(startDate);
     const newStartDate = addTwoWeeks(startDateDate);
 
-    //change startDate and dayAfter
     startDate = `${newStartDate.getMonth() + 1}/${newStartDate.getDate()}/${newStartDate.getFullYear()}`;
     dayAfter = addOneDay(newStartDate);
 
     scheduleResp = pairNamesWithDates(dinSchArry, dinSchDates);
     console.log(scheduleResp);
+
+    let channel = channelToUse || scheduleChannel;
+    
+    if (!channel) {
+        // Iterate through all guilds and try to get the channel
+        for (const guild of client.guilds.cache.values()) {
+            try {
+                // Try to fetch the channel directly by ID
+                channel = await guild.channels.fetch(channelId);
+                if (channel) {
+                    scheduleChannel = channel;
+                    //console.log('Found schedule channel:', channel.name);
+                    break;
+                }
+            } catch (error) {
+                // Channel not in this guild, try next
+                continue;
+            }
+        }
+    }
+    
+    if (channel) {
+        await channel.send(`**DinDin Schedule Updated!**\n\n**DinDin Schedule:**\n${scheduleResp}`);
+    } else {
+        console.error('Schedule channel not available. Channel ID:', channelId);
+        //console.log('Available guilds:', Array.from(client.guilds.cache.keys()));
+    }
 }
 
 cron.schedule('0 0 * * 2', async () => {
-    const now = new Date();
-    const centralTime = new Date(now.getTime() - (now.getTimezoneOffset() * 60000)); // Convert to Central Time
-
-    if (isEveryOtherTuesday(centralTime)) {
-        scheduleUpdate();
+    if (isEveryOtherTuesday()){
+        await scheduleUpdate();
+        console.log('Schedule updated');
     } else {
         console.log('Was not an every other Tuesday');
     }
 });
 
 if (process.argv.includes('--run-now')) {
-        scheduleUpdate();
-}
+    scheduleUpdate().then(() => {
+        console.log('Schedule updated via --run-now');
+    });}
