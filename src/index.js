@@ -13,7 +13,7 @@ const client = new Client({
 
 const userStates = new Collection();
 const channelId = process.env.CHANNEL_ID;
-const dinSchArry = ['Jake', 'Tommy', 'David', 'Christian', 'Iris'];
+const dinSchArry = ['TestUser1', 'TestUser2'];
 
 //Create the array list of dates
 function generateDatesArray (startDate, length){
@@ -163,11 +163,24 @@ client.on('messageCreate', async (message) =>{
 
     if (addWaiting === 'waiting_to_add'){
         const addResponse = message.content;
-        dinSchArry.push(addResponse);
+
+        const namesToAdd = addResponse.split(',').map(name => name.trim()).filter(name => name.length > 0);
+
+        if (namesToAdd.length === 0){
+            await message.channel.send('No names were provided. Please try again.');
+            userStates.delete(userId);
+            return;
+        }
+
+        namesToAdd.forEach(name => {
+            dinSchArry.push(name);
+        });
+
         dinSchDates = generateDatesArray(startDate, dinSchArry.length);
         scheduleResp = pairNamesWithDates(dinSchArry, dinSchDates);
 
-        await message.channel.send(`You have added: "${addResponse}" to the DinDin Schdule.\n\n**DinDin Schedule**\n${scheduleResp}`);
+        const addedNamesList = namesToAdd.map(name => `"${name}"`).join(', ');
+        await message.channel.send(`You have added: ${addedNamesList} to the DinDin Schedule.\n\n**DinDin Schedule**\n${scheduleResp}`);
 
         userStates.delete(userId);
         return;
@@ -176,8 +189,7 @@ client.on('messageCreate', async (message) =>{
     //Removing People from Schedule
     if (message.content == '!remFromSch'){
         scheduleResp = pairNamesWithDates(dinSchArry, dinSchDates);
-        await message.channel.send(`Who would you like to remove, please type in there name exactly as you see it?\n\n**DinDin Schedule**\n${scheduleResp}`);
-
+        await message.channel.send(`Who would you like to remove? You can remove multiple people by separating names with commas (e.g., "Name1, Name2, Name3"). Please type their names exactly as you see them.\n\n**DinDin Schedule**\n${scheduleResp}`);
         userStates.set(userId, 'waiting_to_remove');
     };
 
@@ -185,17 +197,46 @@ client.on('messageCreate', async (message) =>{
         const removeResponse = message.content;
         scheduleResp = pairNamesWithDates(dinSchArry, dinSchDates);
 
-        if(dinSchArry.includes(removeResponse)){
-            var remIndex = dinSchArry.indexOf(removeResponse);
-            dinSchArry.splice(remIndex, 1);
-            dinSchDates = generateDatesArray(startDate, dinSchArry.length);
-            scheduleResp = pairNamesWithDates(dinSchArry, dinSchDates);
+        const namesToRemove = removeResponse.split(',').map(name => name.trim()).filter(name => name.length > 0);
 
-            await message.channel.send(`You have removed... ${removeResponse}.\n\n**DinDin Duties:**\n${scheduleResp}`);
-
-        } else {
-            await message.channel.send(`${removeResponse} is not in the schedule. Please look again and type it out exactly.\n\n**DinDin Schedule**\n${scheduleResp}`);
+        if (namesToRemove.length === 0){
+            await message.channel.send('No names were provided. Please try again.')
+            userStates.delete(userId);
+            return;
         }
+
+        const removedNames = [];
+        const notFoundNames = [];
+
+        namesToRemove.forEach(name => {
+            if (dinSchArry.includes(name)){
+                if (dinSchArry.length === 1){
+                    notFoundNames.push(`${name} cannot be removed, you must keep at least one user in the schedule.`);
+                } else {
+                    var remIndex = dinSchArry.indexOf(name);
+                    dinSchArry.splice(remIndex, 1);
+                    removedNames.push(name);
+                }
+            } else {
+                notFoundNames.push(name);
+            }
+        });
+
+        dinSchDates = generateDatesArray(startDate, dinSchArry.length);
+        scheduleResp = pairNamesWithDates(dinSchArry, dinSchDates);
+
+        let responseMessage = '';
+        if (removedNames.length > 0){
+            const removedList = removedNames.map(name => `"${name}"`).join(', ');
+            responseMessage += `You have removed: ${removedList} from the DinDin Schedule.\n\n`;
+        }
+        if (notFoundNames.length > 0){
+            const notFoundList = notFoundNames.map(name => `"${name}"`).join(', ');
+            responseMessage += `The following names were not found in the schedule: ${notFoundList}.\n\n`;
+        }
+        responseMessage += `**DinDin Schedule**\n${scheduleResp}`;
+
+        await message.channel.send(responseMessage);
 
         userStates.delete(userId);
         return;
