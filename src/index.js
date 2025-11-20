@@ -381,3 +381,31 @@ function isEveryOtherTuesday() {
 
     return today >= targetDate;
 }
+
+async function scheduleUpdate() {
+    let firstPerson =  dinSchArry.shift();
+    dinSchArry.push(firstPerson);
+
+    dinSchDates = addDaysToDates(dinSchDates, 14);
+
+    const startDateDate = new Date(startDate);
+    const newStartDate = addTwoWeeks(startDateDate);
+    startDate = `${newStartDate.getMonth() + 1}/${newStartDate.getDate()}/${newStartDate.getFullYear()}`;
+    dayAfter = addOneDay(newStartDate);
+
+    scheduleResp = pairNamesWithDates(dinSchArry, dinSchDates);
+
+    if (scheduleChannel) {
+        await scheduleChannel.send(`**DinDin Schedule Updated!**\n\n**DinDin Schedule:**\n${scheduleResp}`);
+    }
+};
+
+cron.schedule('0 0 * * 2', async () => {
+    console.log('Cron job triggered - checking if it\'s time to update...');
+    if (isEveryOtherTuesday()) {
+        await scheduleUpdate();
+        console.log('Schedule updated via cron job');
+    } else {
+        console.log('Not time to update yet');
+    }
+});
