@@ -75,7 +75,7 @@ function formatDate(date) {
     return date.toLocaleDateString('en-US', options);
 }
 
-startDate = '11/3/2025';
+startDate = '11/17/2025';
 
 dinSchDates = generateDatesArray(startDate, dinSchArry.length);
 
@@ -365,20 +365,6 @@ client.on('messageCreate', async (message) =>{
         }
         return;
     }
-
-    // if (message.content == '!testCron'){
-    //     if (isEveryOtherTuesday()) {
-    //         await scheduleUpdate(message.channel);
-    //         message.channel.send('Cron job test: Schedule updated successfully!');
-    //     } else {
-    //         const today = new Date();
-    //         const startDateObj = new Date(startDate);
-    //         const targetDate = new Date(startDateObj);
-    //         targetDate.setDate(targetDate.getDate() + 1);
-            
-    //         message.channel.send(`Cron job test: Not time to update yet.\n\nToday: ${today.toLocaleDateString()}\nTarget Date: ${targetDate.toLocaleDateString()}\nStartDate: ${startDate}`);
-    //     }
-    // }
 });
 
 client.login(process.env.TOKEN);
@@ -395,59 +381,3 @@ function isEveryOtherTuesday() {
 
     return today >= targetDate;
 }
-
-async function scheduleUpdate(channelToUse = null){
-    let firstPerson = dinSchArry.shift();
-    dinSchArry.push(firstPerson);
-    dinSchDates = addDaysToDates(dinSchDates, 14);
-
-    const startDateDate = new Date(startDate);
-    const newStartDate = addTwoWeeks(startDateDate);
-
-    startDate = `${newStartDate.getMonth() + 1}/${newStartDate.getDate()}/${newStartDate.getFullYear()}`;
-    dayAfter = addOneDay(newStartDate);
-
-    scheduleResp = pairNamesWithDates(dinSchArry, dinSchDates);
-    console.log(scheduleResp);
-
-    let channel = channelToUse || scheduleChannel;
-    
-    if (!channel) {
-        // Iterate through all guilds and try to get the channel
-        for (const guild of client.guilds.cache.values()) {
-            try {
-                // Try to fetch the channel directly by ID
-                channel = await guild.channels.fetch(channelId);
-                if (channel) {
-                    scheduleChannel = channel;
-                    //console.log('Found schedule channel:', channel.name);
-                    break;
-                }
-            } catch (error) {
-                // Channel not in this guild, try next
-                continue;
-            }
-        }
-    }
-    
-    if (channel) {
-        await channel.send(`**DinDin Schedule Updated!**\n\n**DinDin Schedule:**\n${scheduleResp}`);
-    } else {
-        console.error('Schedule channel not available. Channel ID:', channelId);
-        //console.log('Available guilds:', Array.from(client.guilds.cache.keys()));
-    }
-}
-
-cron.schedule('0 0 * * 2', async () => {
-    if (isEveryOtherTuesday()){
-        await scheduleUpdate();
-        console.log('Schedule updated');
-    } else {
-        console.log('Was not an every other Tuesday');
-    }
-});
-
-if (process.argv.includes('--run-now')) {
-    scheduleUpdate().then(() => {
-        console.log('Schedule updated via --run-now');
-    });}
