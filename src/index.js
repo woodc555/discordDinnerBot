@@ -34,8 +34,12 @@ function generateDatesArray (startDate, length){
 //Adding 14 days to the dates array
 function addDaysToDates(datesArray, daysToAdd) {
     return datesArray.map(dateStr => {
-        
-        const date = new Date(`2024-${getMonthNumber(dateStr)}-${getDayNumber(dateStr)}`);
+        const startDateObj = new Date(startDate);
+        const baseYear = startDateObj.getFullYear();
+        const month = getMonthNumber(dateStr);
+        const day = getDayNumber(dateStr);
+
+        let date = new Date(`${month}/${day}/${baseYear}`);
 
         date.setDate(date.getDate() + daysToAdd);
 
@@ -70,7 +74,7 @@ function formatDate(date) {
     return date.toLocaleDateString('en-US', options);
 }
 
-startDate = '2024-8-26';
+startDate = '11/17/2025';
 
 dinSchDates = generateDatesArray(startDate, dinSchArry.length);
 
@@ -88,12 +92,12 @@ function pairNamesWithDates(namesArray, datesArray) {
 };
 
 //Date Fomat Validation
-const dateRegex = /^\d{4}-\d{1,2}-\d{1,2}$/;
+const dateRegex = /^\d{1,2}\/\d{1,2}\/\d{4}$/;
 
 function isValidDate(dateString) {
     if (!dateRegex.test(dateString)) return false;
 
-    const [year, month, day] = dateString.split('-').map(Number);
+    const [month, day, year] = dateString.split('/').map(Number);
 
     const date = new Date(year, month - 1, day);
     return date.getFullYear() === year &&
@@ -122,7 +126,7 @@ function addTwoWeeks(date) {
     return newDate;
 }
 
-dayAfter = addOneDay(startDate);
+dayAfter = addOneDay(new Date(startDate));
 
 
 client.on('ready', (c) => {
@@ -251,7 +255,12 @@ client.on('messageCreate', async (message) =>{
      if (message.content == "!progress"){
         let firstPerson =  dinSchArry.shift();
         dinSchArry.push(firstPerson);
-        dinSchDates = addDaysToDates(dinSchDates, 15);
+        dinSchDates = addDaysToDates(dinSchDates, 14);
+
+        const startDateDate = new Date(startDate);
+        const newStartDate = addTwoWeeks(startDateDate);
+        startDate = `${newStartDate.getMonth() + 1}/${newStartDate.getDate()}/${newStartDate.getFullYear()}`;
+        dayAfter = addOneDay(newStartDate);
 
         scheduleResp = pairNamesWithDates(dinSchArry, dinSchDates);
 
@@ -260,7 +269,12 @@ client.on('messageCreate', async (message) =>{
 
      //Skip a week
      if (message.content == "!skipWeek"){
-        dinSchDates = addDaysToDates(dinSchDates, 15);
+        dinSchDates = addDaysToDates(dinSchDates, 14);
+
+        const startDateDate = new Date(startDate);
+        const newStartDate = addTwoWeeks(startDateDate);
+        startDate = `${newStartDate.getMonth() + 1}/${newStartDate.getDate()}/${newStartDate.getFullYear()}`;
+        dayAfter = addOneDay(newStartDate);
         
         scheduleResp = pairNamesWithDates(dinSchArry, dinSchDates);
         message.channel.send(`**DinDin Schedule:**\n${scheduleResp}`);
@@ -268,7 +282,7 @@ client.on('messageCreate', async (message) =>{
 
      //Set First Week Date
      if (message.content == '!dateToSet'){
-        await message.channel.send('Please type in a date in **YYYY-M-D** format.');
+        await message.channel.send('Please type in a date in **M/D/YYYY** format.');
 
         userStates.set(userId, 'waiting_for_date');
     };
@@ -276,7 +290,8 @@ client.on('messageCreate', async (message) =>{
     if (addWaiting === 'waiting_for_date'){
         const dateResponse = message.content;
         if (isValidDate(dateResponse)) {
-            const startDate = dateResponse;
+            startDate = dateResponse;
+            dayAfter = addOneDay(new Date(startDate));
             dinSchDates = generateDatesArray(startDate, dinSchArry.length);
             scheduleResp = pairNamesWithDates(dinSchArry, dinSchDates);
     
@@ -284,7 +299,7 @@ client.on('messageCreate', async (message) =>{
             
             userStates.delete(userId);
         } else {
-            await message.channel.send('The date you entered is invalid. Please use the format **YYYY-M-D** and ensure the date is valid.');
+            await message.channel.send('The date you entered is invalid. Please use the format **M/D/YYYY** and ensure the date is valid.');
         }
         return;
     }
@@ -293,25 +308,25 @@ client.on('messageCreate', async (message) =>{
 client.login(process.env.TOKEN);
 
 function isEveryOtherTuesday(date) {
-    const centralOffset = -6 * 60; // Central Time is UTC-6
-    const utcDate = new Date(date.getTime() + (centralOffset * 60000)); // Convert to Central Time
-    //const startDate = new Date('2024-8-13'); // Example start date in local time
+    const datAfterDate = dayAfter instanceof Date ? dayAfter : new Date(dayAfter);
 
-    const diffTime = Math.abs(utcDate - dayAfter);
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    const diffWeeks = Math.floor(diffDays / 7);
+    const diffTime = Math.abs(date - dayAfterDate);
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
 
-    return diffWeeks % 2 === 0;
+    return diffDays % 14 === 0 || diffDays % 14 === 1;
 }
 
 function scheduleUpdate(){
     let firstPerson = dinSchArry.shift();
     dinSchArry.push(firstPerson);
-    dinSchDates = addDaysToDates(dinSchDates, 15);
+    dinSchDates = addDaysToDates(dinSchDates, 14);
+
+    const startDateDate = new Date(startDate);
+    const newStartDate = addTwoWeeks(startDateDate);
 
     //change startDate and dayAfter
-    startDate = addTwoWeeks(startDate);
-    dayAfter = addOneDay(startDate);
+    startDate = `${newStartDate.getMonth() + 1}/${newStartDate.getDate()}/${newStartDate.getFullYear()}`;
+    dayAfter = addOneDay(newStartDate);
 
     scheduleResp = pairNamesWithDates(dinSchArry, dinSchDates);
     console.log(scheduleResp);
