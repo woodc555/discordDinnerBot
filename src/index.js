@@ -1,8 +1,12 @@
 require('dotenv').config();
+const dns = require('dns');
 const fs = require('fs');
 const path = require('path');
 const cron = require('../node_modules/node-cron');
 const {Client, GatewayIntentBits, Collection} = require('discord.js');
+
+// Prefer IPv4. Docker hosts often fail Discord's WebSocket over IPv6.
+dns.setDefaultResultOrder('ipv4first');
 
 const client = new Client({
     intents: [
@@ -165,13 +169,15 @@ dayAfter = addOneDay(new Date(startDate));
 
 
 client.on('ready', async (c) => {
-    console.log('the bot is ready');
+    console.log(`the bot is ready as ${c.user.tag} in ${c.guilds.cache.size} server(s)`);
+
+    await c.user.setPresence({ status: 'online' });
 
     for (const guild of client.guilds.cache.values()) {
         const channel = guild.channels.cache.get(channelId);
         if (channel) {
             scheduleChannel = channel;
-            //console.log('Schedule channel found:', scheduleChannel.name);
+            console.log('Schedule channel found:', scheduleChannel.name);
             break;
         }
     }
@@ -181,10 +187,28 @@ client.on('ready', async (c) => {
     }
 });
 
+client.on('error', (error) => {
+    console.error('Discord client error:', error);
+});
+
+client.on('warn', (warning) => {
+    console.warn('Discord client warning:', warning);
+});
+
+client.on('shardDisconnect', (event, shardId) => {
+    console.error(`Disconnected from Discord (shard ${shardId}):`, event.code, event.reason);
+});
+
+client.on('shardReconnecting', (shardId) => {
+    console.log(`Reconnecting to Discord (shard ${shardId})...`);
+});
+
 client.on('messageCreate', async (message) =>{
     if (message.author.bot){
         return;
     ;}
+
+    console.log(`Message from ${message.author.username}: "${message.content}"`);
 
     if (!scheduleChannel) {
         if (String(message.channel.id) === String(channelId)) {
