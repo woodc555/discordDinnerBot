@@ -1,4 +1,6 @@
 require('dotenv').config();
+const fs = require('fs');
+const path = require('path');
 const cron = require('../node_modules/node-cron');
 const {Client, GatewayIntentBits, Collection} = require('discord.js');
 
@@ -14,7 +16,7 @@ const client = new Client({
 const userStates = new Collection();
 const channelId = process.env.CHANNEL_ID;
 let scheduleChannel = null;
-const dinSchArry = ['TestUser1', 'TestUser2'];
+const scheduleFilePath = path.join(__dirname, '..', 'data', 'schedule.json');
 
 //Create the array list of dates
 function generateDatesArray (startDate, length){
@@ -75,9 +77,41 @@ function formatDate(date) {
     return date.toLocaleDateString('en-US', options);
 }
 
-startDate = '11/17/2025';
+function loadSchedule() {
+    try {
+        const fileContents = fs.readFileSync(scheduleFilePath, 'utf8');
+        const saved = JSON.parse(fileContents);
 
-dinSchDates = generateDatesArray(startDate, dinSchArry.length);
+        if (Array.isArray(saved.names) && saved.names.length > 0 && typeof saved.startDate === 'string') {
+            return {
+                names: saved.names,
+                startDate: saved.startDate,
+            };
+        }
+    } catch (error) {
+        console.log('No saved schedule found, using defaults.');
+    }
+
+    return {
+        names: ['TestUser1', 'TestUser2'],
+        startDate: '11/17/2025',
+    };
+}
+
+function saveSchedule() {
+    const dataToSave = {
+        names: dinSchArry,
+        startDate: startDate,
+    };
+
+    fs.mkdirSync(path.dirname(scheduleFilePath), { recursive: true });
+    fs.writeFileSync(scheduleFilePath, JSON.stringify(dataToSave, null, 2));
+}
+
+const savedSchedule = loadSchedule();
+let dinSchArry = savedSchedule.names;
+let startDate = savedSchedule.startDate;
+let dinSchDates = generateDatesArray(startDate, dinSchArry.length);
 
 //Pairing Names with Dates
 function pairNamesWithDates(namesArray, datesArray) {
@@ -198,6 +232,7 @@ client.on('messageCreate', async (message) =>{
         });
 
         dinSchDates = generateDatesArray(startDate, dinSchArry.length);
+        saveSchedule();
         scheduleResp = pairNamesWithDates(dinSchArry, dinSchDates);
 
         const addedNamesList = namesToAdd.map(name => `"${name}"`).join(', ');
@@ -244,6 +279,9 @@ client.on('messageCreate', async (message) =>{
         });
 
         dinSchDates = generateDatesArray(startDate, dinSchArry.length);
+        if (removedNames.length > 0) {
+            saveSchedule();
+        }
         scheduleResp = pairNamesWithDates(dinSchArry, dinSchDates);
 
         let responseMessage = '';
@@ -301,6 +339,7 @@ client.on('messageCreate', async (message) =>{
 
             [dinSchArry[switchIndexA], dinSchArry[switchIndexB]] = [dinSchArry[switchIndexB], dinSchArry[switchIndexA]];
 
+            saveSchedule();
             scheduleResp = pairNamesWithDates(dinSchArry, dinSchDates);
 
             await message.channel.send(`${switchRespA} will be swapped with ${switchRespB}!\n\n**DinDin Schedule**\n${scheduleResp}`);
@@ -323,6 +362,7 @@ client.on('messageCreate', async (message) =>{
         const newStartDate = addTwoWeeks(startDateDate);
         startDate = `${newStartDate.getMonth() + 1}/${newStartDate.getDate()}/${newStartDate.getFullYear()}`;
         dayAfter = addOneDay(newStartDate);
+        saveSchedule();
 
         scheduleResp = pairNamesWithDates(dinSchArry, dinSchDates);
 
@@ -337,6 +377,7 @@ client.on('messageCreate', async (message) =>{
         const newStartDate = addTwoWeeks(startDateDate);
         startDate = `${newStartDate.getMonth() + 1}/${newStartDate.getDate()}/${newStartDate.getFullYear()}`;
         dayAfter = addOneDay(newStartDate);
+        saveSchedule();
         
         scheduleResp = pairNamesWithDates(dinSchArry, dinSchDates);
         message.channel.send(`**DinDin Schedule:**\n${scheduleResp}`);
@@ -355,6 +396,7 @@ client.on('messageCreate', async (message) =>{
             startDate = dateResponse;
             dayAfter = addOneDay(new Date(startDate));
             dinSchDates = generateDatesArray(startDate, dinSchArry.length);
+            saveSchedule();
             scheduleResp = pairNamesWithDates(dinSchArry, dinSchDates);
     
             await message.channel.send(`You have set your starting date as ${dateResponse}. This will affect when your schedule will automatically switch. This also will change the schedule, starting with the date you just entered.\n\n**DinDin Schedule**\n${scheduleResp}`);
@@ -392,6 +434,7 @@ async function scheduleUpdate() {
     const newStartDate = addTwoWeeks(startDateDate);
     startDate = `${newStartDate.getMonth() + 1}/${newStartDate.getDate()}/${newStartDate.getFullYear()}`;
     dayAfter = addOneDay(newStartDate);
+    saveSchedule();
 
     scheduleResp = pairNamesWithDates(dinSchArry, dinSchDates);
 
