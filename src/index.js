@@ -20,7 +20,10 @@ const client = new Client({
 const userStates = new Collection();
 const channelId = process.env.CHANNEL_ID;
 let scheduleChannel = null;
-const scheduleFilePath = path.join(__dirname, '..', 'data', 'schedule.json');
+const scheduleFilePath = process.env.SCHEDULE_FILE || path.join(process.cwd(), 'data', 'schedule.json');
+console.log('Schedule file path:', scheduleFilePath);
+console.log('Working directory:', process.cwd());
+console.log('Script directory:', __dirname);
 
 //Create the array list of dates
 function generateDatesArray (startDate, length){
@@ -87,13 +90,14 @@ function loadSchedule() {
         const saved = JSON.parse(fileContents);
 
         if (Array.isArray(saved.names) && saved.names.length > 0 && typeof saved.startDate === 'string') {
+            console.log(`Loaded schedule from ${scheduleFilePath}: ${saved.names.join(', ')}`);
             return {
                 names: saved.names,
                 startDate: saved.startDate,
             };
         }
     } catch (error) {
-        console.log('No saved schedule found, using defaults.');
+        console.log(`No saved schedule found at ${scheduleFilePath}, using defaults.`);
     }
 
     return {
@@ -108,8 +112,14 @@ function saveSchedule() {
         startDate: startDate,
     };
 
-    fs.mkdirSync(path.dirname(scheduleFilePath), { recursive: true });
-    fs.writeFileSync(scheduleFilePath, JSON.stringify(dataToSave, null, 2));
+    try {
+        fs.mkdirSync(path.dirname(scheduleFilePath), { recursive: true });
+        fs.writeFileSync(scheduleFilePath, JSON.stringify(dataToSave, null, 2));
+        console.log(`Saved schedule to ${scheduleFilePath}: ${dinSchArry.join(', ')}`);
+    } catch (error) {
+        console.error(`Failed to save schedule to ${scheduleFilePath}:`, error);
+        throw error;
+    }
 }
 
 const savedSchedule = loadSchedule();
